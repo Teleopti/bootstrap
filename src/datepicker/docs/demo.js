@@ -18,6 +18,13 @@ angular.module('ui.bootstrap.demo').controller('DatepickerDemoCtrl', function ($
   };
   $scope.toggleMin();
 
+  $scope.toggleRange = function() {
+    $scope.rangeMode = $scope.rangeMode ? false : true;
+    if($scope.rangeMode) {
+      $scope.dt = {startDate: new Date(), endDate: new Date()};
+    }
+  };
+
   $scope.open = function($event) {
     $event.preventDefault();
     $event.stopPropagation();

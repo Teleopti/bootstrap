@@ -14,7 +14,8 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   startingDay: 0,
   yearRange: 20,
   minDate: null,
-  maxDate: null
+  maxDate: null,
+  rangeMode: false
 })
 
 .controller('DatepickerController', ['$scope', '$attrs', '$parse', '$interpolate', '$timeout', '$log', 'dateFilter', 'datepickerConfig', function($scope, $attrs, $parse, $interpolate, $timeout, $log, dateFilter, datepickerConfig) {
@@ -26,7 +27,7 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
 
   // Configuration attributes
   angular.forEach(['formatDay', 'formatMonth', 'formatYear', 'formatDayHeader', 'formatDayTitle', 'formatMonthTitle',
-                   'minMode', 'maxMode', 'showWeeks', 'startingDay', 'yearRange'], function( key, index ) {
+                   'minMode', 'maxMode', 'showWeeks', 'startingDay', 'yearRange', 'rangeMode'], function( key, index ) {
     self[key] = angular.isDefined($attrs[key]) ? (index < 8 ? $interpolate($attrs[key])($scope.$parent) : $scope.$parent.$eval($attrs[key])) : datepickerConfig[key];
   });
 
@@ -64,13 +65,17 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
 
   this.render = function() {
     if ( ngModelCtrl.$modelValue ) {
-      var date = new Date( ngModelCtrl.$modelValue ),
+      var date = self.rangeMode ? new Date( ngModelCtrl.$modelValue.startDate ) : new Date( ngModelCtrl.$modelValue ),
           isValid = !isNaN(date);
 
       if ( isValid ) {
         this.activeDate = date;
       } else {
-        $log.error('Datepicker directive: "ng-model" value must be a Date object, a number of milliseconds since 01.01.1970 or a string representing an RFC2822 or ISO 8601 date.');
+        if (self.rangeMode) {
+          $log.error('Datepicker directive with rangeMode option: "ng-model" value must be a object of two dates {startDate: ..., endDate:... }, and each date must be a number of milliseconds since 01.01.1970 or a string representing an RFC2822 or ISO 8601 date.');
+        } else {
+          $log.error('Datepicker directive: "ng-model" value must be a Date object, a number of milliseconds since 01.01.1970 or a string representing an RFC2822 or ISO 8601 date.');
+        }
       }
       ngModelCtrl.$setValidity('date', isValid);
     }
@@ -80,18 +85,33 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   this.refreshView = function() {
     if ( this.element ) {
       this._refreshView();
-
-      var date = ngModelCtrl.$modelValue ? new Date(ngModelCtrl.$modelValue) : null;
+      var date = null;
+      if (self.rangeMode) {
+        date = ngModelCtrl.$modelValue.startDate ? new Date(ngModelCtrl.$modelValue.startDate) : null;
+      }
+      else {
+        date = ngModelCtrl.$modelValue ? new Date(ngModelCtrl.$modelValue) : null;
+      }
       ngModelCtrl.$setValidity('date-disabled', !date || (this.element && !this.isDisabled(date)));
     }
   };
 
   this.createDateObject = function(date, format) {
-    var model = ngModelCtrl.$modelValue ? new Date(ngModelCtrl.$modelValue) : null;
+    var model, selected;
+    if (self.rangeMode) {
+      var startDate = ngModelCtrl.$modelValue.startDate ? new Date(ngModelCtrl.$modelValue.startDate) : null;
+      var endDate = ngModelCtrl.$modelValue.endDate ? new Date(ngModelCtrl.$modelValue.endDate) : null;
+      selected = (startDate && (this.compare(date, startDate) === 0)) || (startDate && endDate && (this.compare(date, startDate) >= 0)  && (this.compare(date, endDate) <= 0));
+    }
+    else {
+      model = ngModelCtrl.$modelValue ? new Date(ngModelCtrl.$modelValue) : null;
+      selected = model && this.compare(date, model) === 0;
+    }
+
     return {
       date: date,
       label: dateFilter(date, format),
-      selected: model && this.compare(date, model) === 0,
+      selected: selected,
       disabled: this.isDisabled(date),
       current: this.compare(date, new Date()) === 0
     };
@@ -112,9 +132,26 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
 
   $scope.select = function( date ) {
     if ( $scope.datepickerMode === self.minMode ) {
-      var dt = ngModelCtrl.$modelValue ? new Date( ngModelCtrl.$modelValue ) : new Date(0, 0, 0, 0, 0, 0, 0);
-      dt.setFullYear( date.getFullYear(), date.getMonth(), date.getDate() );
-      ngModelCtrl.$setViewValue( dt );
+      if(self.rangeMode) { //FIXME refacto
+        var startDate, endDate, viewValue;
+        if(date > ngModelCtrl.$modelValue.startDate) {
+          startDate = ngModelCtrl.$modelValue.startDate ? new Date(ngModelCtrl.$modelValue.startDate) : new Date(0, 0, 0, 0, 0, 0, 0);
+          endDate = ngModelCtrl.$modelValue.endDate ? new Date(ngModelCtrl.$modelValue.endDate) : new Date(0, 0, 0, 0, 0, 0, 0);
+          endDate.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+          viewValue = {startDate: startDate, endDate: endDate};
+          ngModelCtrl.$setViewValue(angular.copy(viewValue));
+        } else {
+          startDate = ngModelCtrl.$modelValue.startDate ? new Date(ngModelCtrl.$modelValue.startDate) : new Date(0, 0, 0, 0, 0, 0, 0);
+          endDate = ngModelCtrl.$modelValue.endDate ? new Date(ngModelCtrl.$modelValue.endDate) : new Date(0, 0, 0, 0, 0, 0, 0);
+          startDate.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+          viewValue = {startDate: startDate, endDate: endDate};
+          ngModelCtrl.$setViewValue(angular.copy(viewValue));
+        }
+      }else {
+        var dt = ngModelCtrl.$modelValue ? new Date(ngModelCtrl.$modelValue) : new Date(0, 0, 0, 0, 0, 0, 0);
+        dt.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+        ngModelCtrl.$setViewValue(dt);
+      }
       ngModelCtrl.$render();
     } else {
       self.activeDate = date;

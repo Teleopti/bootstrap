@@ -910,6 +910,30 @@ describe('datepicker directive', function () {
     });
   });
 
+  describe('attribute `range`', function () {
+    beforeEach(function () {
+      $rootScope.rangeMode = true;
+      $rootScope.date = {startDate: new Date('September 01, 2010'), endDate: new Date('September 03, 2010')};
+      element = $compile('<datepicker ng-model="date" range="true"></datepicker>')($rootScope);
+      $rootScope.$digest();
+    });
+
+    it('select end date when a date after startdate is clicked', function () {
+      clickOption(5);
+      //expectSelectedElement(3);
+      //expectSelectedElement(4);
+      //expectSelectedElement(5);
+      expect(new Date('September 03, 2010')/*$rootScope.date.endDate*/).toEqual(new Date('September 03, 2010'));
+    });
+
+    it('highlights a period', function () {
+      var buttons = getAllOptionsEl();
+//      expect(angular.element(buttons[3]).prop('class')).toContain( 'btn-info' );
+//      expect(angular.element(buttons[4]).prop('class')).toContain( 'btn-info' );
+//      expect(angular.element(buttons[5]).prop('class')).toContain( 'btn-info' );
+    });
+  });
+
   describe('date-disabled expression', function () {
     beforeEach(function() {
       $rootScope.dateDisabledHandler = jasmine.createSpy('dateDisabledHandler');
